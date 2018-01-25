@@ -380,6 +380,13 @@ impl JournalDB for OverlayRecentDB {
             journal_overlay.earliest_era = Some(end_era + 1);
         }
 
+        if (end_era != 0) && (end_era % 20 == 0) {
+            self.transaction_overlay.shrink_to_fit();
+            journal_overlay.backing_overlay.shrink_to_fit();
+            journal_overlay.pending_overlay.shrink_to_fit();
+            journal_overlay.journal.shrink_to_fit();
+        }
+
         Ok(ops as u32)
     }
 
