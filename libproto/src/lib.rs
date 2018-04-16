@@ -18,6 +18,7 @@
 #![feature(try_from)]
 
 extern crate cita_crypto as crypto;
+extern crate grpc;
 #[macro_use]
 extern crate log as rlog;
 extern crate protobuf;
@@ -25,29 +26,25 @@ extern crate rlp;
 extern crate rustc_serialize;
 #[macro_use]
 extern crate serde_derive;
+extern crate tls_api;
 extern crate util;
 
 pub mod protos;
-
 pub use protos::*;
-pub use protos::auth;
-pub use protos::blockchain;
-pub use protos::communication;
-pub use protos::consensus;
-pub use protos::executor;
-pub use protos::request;
-pub use protos::response;
-pub use protos::sync;
+mod autoimpl;
+pub mod router;
 
 use crypto::{CreateKey, KeyPair, Message as SignMessage, PrivKey, PubKey, Sign, Signature, SIGNATURE_BYTES_LEN};
-use protobuf::{parse_from_bytes, Message as MessageTrait, RepeatedField};
-use rlp::*;
+use protobuf::RepeatedField;
+use rlp::{Decodable, DecoderError, Encodable, RlpStream, UntrustedRlp};
 use rustc_serialize::hex::ToHex;
+use std::convert::{From, TryFrom, TryInto};
 use std::ops::Deref;
 use std::result::Result::Err;
-use util::{merklehash, snappy, H256, Hashable};
+use util::{merklehash, H256, Hashable};
 
-use std::convert::{From, Into, TryFrom, TryInto};
+pub use autoimpl::{Message, MsgClass, OperateType, Origin, RawBytes, TryFromConvertError, TryIntoConvertError,
+                   ZERO_ORIGIN};
 
 //TODO respone contain error
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -67,303 +64,6 @@ impl TxResponse {
 
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct State(pub Vec<Vec<u8>>);
-
-pub mod submodules {
-    pub const JSON_RPC: u32 = 1;
-    pub const NET: u32 = 2;
-    pub const CHAIN: u32 = 3;
-    pub const CONSENSUS: u32 = 4;
-    pub const CONSENSUS_CMD: u32 = 5;
-    pub const AUTH: u32 = 6;
-    pub const EXECUTOR: u32 = 7;
-}
-
-// TODO: 这里要不要修改下，使topics和MsgClass对应起来
-pub mod topics {
-    pub const DEFAULT: u16 = 0;
-    pub const REQUEST: u16 = 1;
-    pub const NEW_BLK: u16 = 2;
-    pub const NEW_STATUS: u16 = 3;
-    pub const SYNC_BLK: u16 = 4;
-    pub const RESPONSE: u16 = 5;
-    pub const CONSENSUS_MSG: u16 = 6;
-    pub const NEW_PROPOSAL: u16 = 7;
-    pub const VERIFY_TX_REQ: u16 = 8;
-    pub const VERIFY_TX_RESP: u16 = 9;
-    pub const VERIFY_BLK_REQ: u16 = 10;
-    pub const VERIFY_BLK_RESP: u16 = 11;
-    pub const BLOCK_TXHASHES: u16 = 12;
-    pub const BLOCK_TXHASHES_REQ: u16 = 13;
-    pub const NEW_PROOF_BLOCK: u16 = 14;
-    pub const BLOCK_TXS: u16 = 15;
-    pub const RICH_STATUS: u16 = 16;
-    pub const EXECUTED_RESULT: u16 = 17;
-}
-
-#[derive(Debug)]
-pub enum MsgClass {
-    EMPTY,
-    REQUEST(Request),
-    RESPONSE(Response),
-    HEADER(BlockHeader),
-    BLOCK(Block),
-    STATUS(Status),
-    VERIFYTXREQ(VerifyTxReq),
-    VERIFYTXRESP(VerifyTxResp),
-    VERIFYBLKREQ(VerifyBlockReq),
-    VERIFYBLKRESP(VerifyBlockResp),
-    BLOCKTXHASHES(BlockTxHashes),
-    BLOCKTXHASHESREQ(BlockTxHashesReq),
-    BLOCKWITHPROOF(BlockWithProof),
-    BLOCKTXS(BlockTxs),
-    MSG(Vec<u8>),
-    RICHSTATUS(RichStatus),
-    SYNCREQUEST(SyncRequest),
-    SYNCRESPONSE(SyncResponse),
-    EXECUTED(ExecutedResult),
-}
-
-pub fn key_to_id(key: &str) -> u32 {
-    if key.starts_with("jsonrpc") {
-        submodules::JSON_RPC
-    } else if key.starts_with("net") {
-        submodules::NET
-    } else if key.starts_with("chain") {
-        submodules::CHAIN
-    } else if key.starts_with("consensus_cmd") {
-        submodules::CONSENSUS_CMD
-    } else if key.starts_with("consensus") {
-        submodules::CONSENSUS
-    } else if key.starts_with("auth") {
-        submodules::AUTH
-    } else if key.starts_with("executor") {
-        submodules::EXECUTOR
-    } else {
-        0
-    }
-}
-
-pub fn cmd_id(submodule: u32, topic: u16) -> u32 {
-    (submodule << 16) + topic as u32
-}
-
-const ZERO_ORIGIN: u32 = 99999;
-
-impl From<Message_oneof_content> for MsgClass {
-    fn from(content: Message_oneof_content) -> Self {
-        match content {
-            Message_oneof_content::RawBytes(data) => {
-                let mut content = Vec::new();
-                content.extend_from_slice(&snappy::cita_decompress(data));
-                MsgClass::MSG(content)
-            }
-            Message_oneof_content::Request(data) => MsgClass::REQUEST(data),
-            Message_oneof_content::Response(data) => MsgClass::RESPONSE(data),
-            Message_oneof_content::SyncRequest(data) => MsgClass::SYNCREQUEST(data),
-            Message_oneof_content::SyncResponse(data) => MsgClass::SYNCRESPONSE(data),
-            Message_oneof_content::Status(data) => MsgClass::STATUS(data),
-            Message_oneof_content::RichStatus(data) => MsgClass::RICHSTATUS(data),
-            Message_oneof_content::Block(data) => MsgClass::BLOCK(data),
-            Message_oneof_content::BlockWithProof(data) => MsgClass::BLOCKWITHPROOF(data),
-            Message_oneof_content::BlockHeader(data) => MsgClass::HEADER(data),
-            Message_oneof_content::BlockTxs(data) => MsgClass::BLOCKTXS(data),
-            Message_oneof_content::BlockTxHashes(data) => MsgClass::BLOCKTXHASHES(data),
-            Message_oneof_content::BlockTxHashesReq(data) => MsgClass::BLOCKTXHASHESREQ(data),
-            Message_oneof_content::VerifyTxReq(data) => MsgClass::VERIFYTXREQ(data),
-            Message_oneof_content::VerifyTxResp(data) => MsgClass::VERIFYTXRESP(data),
-            Message_oneof_content::VerifyBlockReq(data) => MsgClass::VERIFYBLKREQ(data),
-            Message_oneof_content::VerifyBlockResp(data) => MsgClass::VERIFYBLKRESP(data),
-            Message_oneof_content::ExecutedResult(data) => MsgClass::EXECUTED(data),
-        }
-    }
-}
-
-impl From<Option<Message_oneof_content>> for MsgClass {
-    fn from(content: Option<Message_oneof_content>) -> Self {
-        match content {
-            Some(inner) => inner.into(),
-            None => MsgClass::EMPTY,
-        }
-    }
-}
-
-impl Message {
-    pub fn clear_content(&mut self) {
-        self.content = None;
-    }
-
-    pub fn has_content(&self) -> bool {
-        self.content.is_some()
-    }
-
-    // Param is passed by value, moved
-    pub fn set_content(&mut self, v: MsgClass) {
-        match v {
-            MsgClass::MSG(data) => self.set_RawBytes(snappy::cita_compress(data)),
-            MsgClass::REQUEST(data) => self.set_Request(data),
-            MsgClass::RESPONSE(data) => self.set_Response(data),
-            MsgClass::SYNCREQUEST(data) => self.set_SyncRequest(data),
-            MsgClass::SYNCRESPONSE(data) => self.set_SyncResponse(data),
-            MsgClass::STATUS(data) => self.set_Status(data),
-            MsgClass::RICHSTATUS(data) => self.set_RichStatus(data),
-            MsgClass::BLOCK(data) => self.set_Block(data),
-            MsgClass::BLOCKWITHPROOF(data) => self.set_BlockWithProof(data),
-            MsgClass::HEADER(data) => self.set_BlockHeader(data),
-            MsgClass::BLOCKTXS(data) => self.set_BlockTxs(data),
-            MsgClass::BLOCKTXHASHES(data) => self.set_BlockTxHashes(data),
-            MsgClass::BLOCKTXHASHESREQ(data) => self.set_BlockTxHashesReq(data),
-            MsgClass::VERIFYTXREQ(data) => self.set_VerifyTxReq(data),
-            MsgClass::VERIFYTXRESP(data) => self.set_VerifyTxResp(data),
-            MsgClass::VERIFYBLKREQ(data) => self.set_VerifyBlockReq(data),
-            MsgClass::VERIFYBLKRESP(data) => self.set_VerifyBlockResp(data),
-            MsgClass::EXECUTED(data) => self.set_ExecutedResult(data),
-            MsgClass::EMPTY => self.clear_content(),
-        };
-    }
-
-    pub fn get_content(&self) -> MsgClass {
-        self.content.clone().into()
-    }
-
-    pub fn take_content(&mut self) -> MsgClass {
-        self.content.take().into()
-    }
-
-    pub fn init(sub: u32, top: u16, operate: OperateType, origin: u32, mc: MsgClass) -> Self {
-        let mut msg = Message::new();
-        msg.set_cmd_id(cmd_id(sub, top));
-        msg.set_origin(origin);
-        msg.set_operate(operate);
-        msg.set_content(mc);
-        msg
-    }
-
-    pub fn init_default(sub: u32, top: u16, mc: MsgClass) -> Self {
-        Message::init(sub, top, OperateType::BROADCAST, ZERO_ORIGIN, mc)
-    }
-}
-
-#[derive(Debug)]
-pub struct TryFromConvertError(());
-
-#[derive(Debug)]
-pub struct TryIntoConvertError(());
-
-macro_rules! impl_convert_for_struct {
-    ($( $struct:ident, )+) => {
-        $(
-            impl_convert_for_struct!($struct);
-        )+
-    };
-    ($struct:ident) => {
-
-        impl<'a> TryFrom<&'a [u8]> for $struct {
-            type Error = TryFromConvertError;
-            fn try_from(b: &[u8]) -> Result<Self, TryFromConvertError> {
-                parse_from_bytes::<$struct>(b).map_err(|_| { TryFromConvertError(()) })
-            }
-        }
-
-        impl<'a> TryFrom<&'a Vec<u8>> for $struct {
-            type Error = TryFromConvertError;
-            fn try_from(v: &Vec<u8>) -> Result<Self, TryFromConvertError> {
-                Self::try_from(v.as_slice())
-            }
-        }
-
-       /* Comment for preventing confusion: references is better than entities.
-       impl TryFrom<Vec<u8>> for $struct {
-            type Error = TryFromConvertError;
-            fn try_from(v: Vec<u8>) -> Result<Self, TryFromConvertError> {
-                Self::try_from(v.as_slice())
-            }
-        }
-        */
-
-       impl<'a> TryInto<Vec<u8>> for &'a $struct {
-           type Error = TryIntoConvertError;
-           fn try_into(self) -> Result<Vec<u8>, TryIntoConvertError> {
-               self.write_to_bytes().map_err(|_| { TryIntoConvertError(()) })
-           }
-       }
-
-       impl TryInto<Vec<u8>> for $struct {
-           type Error = TryIntoConvertError;
-           fn try_into(self) -> Result<Vec<u8>, TryIntoConvertError> {
-               self.write_to_bytes().map_err(|_| { TryIntoConvertError(()) })
-           }
-       }
-    };
-}
-
-macro_rules! loop_macro_for_structs {
-    ($macro:ident) => {
-        $macro!(
-            // Generate ALL-PROTOS automatically begin:
-            BlockTxHashes,
-            BlockTxHashesReq,
-            VerifyBlockReq,
-            VerifyBlockResp,
-            VerifyTxReq,
-            VerifyTxResp,
-            AccountGasLimit,
-            Block,
-            BlockBody,
-            BlockHeader,
-            BlockTxs,
-            BlockWithProof,
-            Proof,
-            RichStatus,
-            SignedTransaction,
-            Status,
-            Transaction,
-            UnverifiedTransaction,
-            Message,
-            Proposal,
-            SignedProposal,
-            Vote,
-            ConsensusConfig,
-            ExecutedHeader,
-            ExecutedInfo,
-            ExecutedResult,
-            LogEntry,
-            Receipt,
-            ReceiptErrorWithOption,
-            ReceiptWithOption,
-            StateRoot,
-            BatchRequest,
-            Call,
-            Request,
-            FullTransaction,
-            Response,
-            SyncRequest,
-            SyncResponse,
-            // Generate ALL-PROTOS automatically end.
-        );
-    }
-}
-
-loop_macro_for_structs!(impl_convert_for_struct);
-
-impl Into<Message> for Request {
-    fn into(self) -> Message {
-        Message::init_default(
-            submodules::JSON_RPC,
-            topics::REQUEST,
-            MsgClass::REQUEST(self),
-        )
-    }
-}
-
-impl Into<Message> for Response {
-    fn into(self) -> Message {
-        Message::init_default(
-            submodules::CHAIN,
-            topics::RESPONSE,
-            MsgClass::RESPONSE(self),
-        )
-    }
-}
 
 impl From<RichStatus> for Status {
     fn from(rich_status: RichStatus) -> Self {
@@ -545,22 +245,16 @@ impl BlockBody {
     }
 
     pub fn transactions_root(&self) -> H256 {
-        merklehash::complete_merkle_root_raw(self.transaction_hashes().clone())
+        merklehash::MerkleTree::from_hashes(self.transaction_hashes().clone()).get_root_hash()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn cmd_id_works() {
-        assert_eq!(cmd_id(submodules::JSON_RPC, topics::REQUEST), 0x10001);
-        assert_eq!(cmd_id(submodules::CHAIN, topics::RESPONSE), 0x30005);
-    }
 
     #[test]
     fn create_tx() {
+        use super::{CreateKey, KeyPair, Transaction};
         let keypair = KeyPair::gen_keypair();
         let pv = keypair.privkey();
 
@@ -578,4 +272,5 @@ mod tests {
             signed_tx.get_transaction_with_sig().crypt_hash()
         );
     }
+
 }

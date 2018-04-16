@@ -36,7 +36,9 @@ use std::vec::Vec;
 
 #[derive(Debug, Clone)]
 struct Directive {
+    // module name
     name: String,
+    // log level
     level: LevelFilter,
 }
 
@@ -45,18 +47,18 @@ static INIT_LOG: Once = ONCE_INIT;
 pub fn init_config(service_name: &str) {
     INIT_LOG.call_once(|| {
         // parse RUST_LOG
-        let mut directives: Vec<Directive> = Vec::new();
-        if let Ok(s) = env::var("RUST_LOG") {
-            directives = parse_env(&s);
-        }
+        let directives: Vec<Directive> = match env::var("RUST_LOG") {
+            Ok(s) => parse_env(&s),
+            Err(_) => Vec::new(),
+        };
 
         // log4rs config
-        let log_name = format!("logs/{}.log", service_name.to_string());
+        let log_name = format!("logs/{}.log", service_name);
         let directives_clone = directives.clone();
         let config = config_file_appender(&log_name, directives_clone);
         let handle = log4rs::init_config(config).unwrap();
 
-        // logrotate via signal(USR1)
+        // log rotate via signal(USR1)
         let signal = chan_signal::notify(&[Signal::USR1]);
 
         // Any and all threads spawned must come after the first call to notify (or notify_on).
@@ -77,7 +79,7 @@ pub fn init_config(service_name: &str) {
                     continue;
                 }
 
-                //reconfig
+                // reconfig
                 let directives_clone = directives.clone();
                 let new_config = config_file_appender(&log_name, directives_clone);
                 handle.set_config(new_config);
@@ -90,10 +92,10 @@ pub fn init_config(service_name: &str) {
 pub fn init() {
     INIT_LOG.call_once(|| {
         // parse RUST_LOG
-        let mut directives: Vec<Directive> = Vec::new();
-        if let Ok(s) = env::var("RUST_LOG") {
-            directives = parse_env(&s);
-        }
+        let directives: Vec<Directive> = match env::var("RUST_LOG") {
+            Ok(s) => parse_env(&s),
+            Err(_) => Vec::new(),
+        };
         let config = config_console_appender(directives);
         log4rs::init_config(config).unwrap();
     });
@@ -162,7 +164,7 @@ fn parse_env(env: &str) -> Vec<Directive> {
     directives
 }
 
-fn creat_loggers(directives: Vec<Directive>, appender: String) -> Vec<Logger> {
+fn create_loggers(directives: Vec<Directive>, appender: String) -> Vec<Logger> {
     let mut loggers = Vec::new();
 
     if directives.is_empty() {
@@ -191,7 +193,7 @@ fn config_file_appender(file_path: &str, directives: Vec<Directive>) -> Config {
 
     let mut config_builder = Config::builder().appender(Appender::builder().build("requests", Box::new(requests)));
 
-    let loggers = creat_loggers(directives, "requests".to_string());
+    let loggers = create_loggers(directives, "requests".to_string());
 
     // config crate or module log level
     if loggers.len() != 0 {
@@ -212,11 +214,13 @@ fn config_file_appender(file_path: &str, directives: Vec<Directive>) -> Config {
 
 // ConsoleAppender config
 fn config_console_appender(directives: Vec<Directive>) -> Config {
-    let stdout = ConsoleAppender::builder().build();
+    let stdout = ConsoleAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{d} - {l} - {m}{n}")))
+        .build();
 
     let mut config_builder = Config::builder().appender(Appender::builder().build("stdout", Box::new(stdout)));
 
-    let loggers = creat_loggers(directives, "stdout".to_string());
+    let loggers = create_loggers(directives, "stdout".to_string());
 
     // config crate or module log level
     if loggers.len() != 0 {

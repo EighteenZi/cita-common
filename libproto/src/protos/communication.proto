@@ -4,46 +4,44 @@ import "request.proto";
 import "response.proto";
 import "sync.proto";
 import "blockchain.proto";
+import "consensus.proto";
 import "auth.proto";
 import "executor.proto";
+import "snapshot.proto";
 
-enum OperateType {
-    BROADCAST = 0;
-    SINGLE = 1;
-    SUBTRACT = 2;
-}
-
-message Message {
-    uint32 cmd_id = 1;
-    uint32 origin = 2;
-    OperateType operate = 3;
+message InnerMessage {
 
     oneof content {
 
-        bytes RawBytes = 4;
+        bytes RawBytes = 1;
 
-        Request Request = 5;
-        Response Response = 6;
+        Request Request = 2;
+        Response Response = 3;
 
-        SyncRequest SyncRequest = 7;
-        SyncResponse SyncResponse = 8;
+        SyncRequest SyncRequest = 4;
+        SyncResponse SyncResponse = 5;
 
-        Status Status = 9;
-        RichStatus RichStatus = 10;
+        Status Status = 6;
+        RichStatus RichStatus = 7;
 
-        Block Block = 11;
-        BlockWithProof BlockWithProof = 12;
-        BlockHeader BlockHeader = 13;
-        BlockTxs BlockTxs = 14;
+        SignedProposal SignedProposal = 8;
 
-        BlockTxHashes BlockTxHashes = 15;
-        BlockTxHashesReq BlockTxHashesReq = 16;
+        Block Block = 9;
+        BlockWithProof BlockWithProof = 10;
+        BlockHeader BlockHeader = 11;
+        BlockTxs BlockTxs = 12;
 
-        VerifyTxReq VerifyTxReq = 17;
-        VerifyTxResp VerifyTxResp = 18;
-        VerifyBlockReq VerifyBlockReq = 19;
-        VerifyBlockResp VerifyBlockResp = 20;
+        BlockTxHashes BlockTxHashes = 13;
+        BlockTxHashesReq BlockTxHashesReq = 14;
 
-        ExecutedResult ExecutedResult = 21;
+        VerifyTxReq VerifyTxReq = 15;
+        VerifyTxResp VerifyTxResp = 16;
+        VerifyBlockReq VerifyBlockReq = 17;
+        VerifyBlockResp VerifyBlockResp = 18;
+
+        ExecutedResult ExecutedResult = 19;
+
+        SnapshotReq SnapshotReq = 20;
+        SnapshotResp SnapshotResp = 21;
     }
 }

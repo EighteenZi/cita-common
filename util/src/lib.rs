@@ -14,6 +14,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 #![allow(unused_extern_crates)]
 #![feature(custom_attribute)]
 #![allow(unused_attributes)]
@@ -22,6 +23,7 @@ extern crate bigint;
 #[cfg(feature = "blake2bhash")]
 extern crate blake2b;
 extern crate elastic_array;
+extern crate git2;
 extern crate heapsize;
 extern crate itertools;
 extern crate libc;
@@ -29,8 +31,11 @@ extern crate lru_cache;
 extern crate parking_lot;
 extern crate regex;
 extern crate rlp;
+#[macro_use]
+extern crate rlp_derive;
 extern crate rocksdb;
 extern crate rustc_hex;
+extern crate rustc_version;
 extern crate sha3;
 #[cfg(feature = "sm3hash")]
 extern crate sm3;
@@ -39,9 +44,12 @@ extern crate target_info;
 #[macro_use]
 extern crate log as rlog;
 extern crate panic_hook;
+extern crate serde;
+extern crate toml;
 extern crate uuid;
 
 pub mod avl;
+pub mod build_info;
 pub mod merklehash;
 pub mod hashable;
 pub mod common;

@@ -12,21 +12,26 @@ message ExecutedHeader {
     bytes log_bloom = 7;
     uint64 gas_used = 8;
     uint64 gas_limit = 9;
+    bytes proposer = 10;
 }
 
 enum ReceiptError {
     //ExecutionError
     NoTransactionPermission = 0;
     NoContractPermission = 1;
-    NotEnoughBaseGas = 2;
-    BlockGasLimitReached  = 3;
-    AccountGasLimitReached  = 4;
-    OutOfGas = 5;
-    BadJumpDestination = 6;
-    BadInstruction = 7;
-    StackUnderflow = 8;
-    OutOfStack = 9;
-    Internal = 10;
+    NoCallPermission = 2;
+    NotEnoughBaseGas = 3;
+    BlockGasLimitReached  = 4;
+    AccountGasLimitReached  = 5;
+    OutOfGas = 6;
+    BadJumpDestination = 7;
+    BadInstruction = 8;
+    StackUnderflow = 9;
+    OutOfStack = 10;
+    Internal = 11;
+    MutableCallInStaticContext = 12;
+    OutOfBounds = 13;
+    Reverted = 14;
 }
 
 message LogEntry {
@@ -49,6 +54,8 @@ message Receipt {
     bytes log_bloom = 3;
     repeated LogEntry logs = 4;
     ReceiptErrorWithOption error = 5;
+    uint64 account_nonce = 6;
+    bytes transaction_hash = 7;
 }
 
 message ReceiptWithOption {
@@ -69,4 +76,29 @@ message ConsensusConfig {
 message ExecutedResult {
     ExecutedInfo executed_info = 1;
     ConsensusConfig config = 2;
+}
+
+message RegisterRequest {
+    string contract_address = 1;
+    string ip = 2;
+    string port = 3;
+}
+
+message RegisterResponse {
+    string state = 1;
+}
+
+message LoadRequest {
+    uint64 height = 1;
+    string contract_address = 2;
+    string key = 3;
+}
+
+message LoadResponse {
+    string value = 1;
+}
+
+service ExecutorService {
+    rpc Register(RegisterRequest) returns (RegisterResponse){}
+    rpc Load(LoadRequest) returns (LoadResponse){}
 }
