@@ -1,12 +1,12 @@
 // Copyright 2015-2017 Parity Technologies (UK) Ltd.
 // This file is part of Parity.
 
-// Parity is free software: you can redistribute it and/or modify
+// This software is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Parity is distributed in the hope that it will be useful,
+// This software is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -17,9 +17,10 @@
 //! Trie interface and implementation.
 #![rustfmt_skip]
 
-use hash::H256;
+use types::H256;
 use hashdb::{HashDB, DBValue};
 use std::fmt;
+use Bytes;
 
 /// Export the standardmap module.
 pub mod standardmap;
@@ -158,6 +159,11 @@ pub trait Trie {
     where
         'a: 'key;
 
+    /// get merkle proof for the key in the trie
+    fn get_value_proof<'a, 'key>(&'a self, key: &'key [u8]) -> Option<Vec<Bytes>>
+    where
+        'a: 'key;
+
     /// Returns a depth-first iterator over the elements of trie.
     fn iter<'a>(&'a self) -> Result<Box<TrieIterator<Item = TrieItem> + 'a>>;
 }
@@ -208,7 +214,7 @@ pub enum TrieSpec {
 
 impl Default for TrieSpec {
     fn default() -> TrieSpec {
-        TrieSpec::Secure
+        TrieSpec::Generic
     }
 }
 
@@ -258,6 +264,13 @@ impl<'db> Trie for TrieKinds<'db> {
         'a: 'key,
     {
         wrapper!(self, get_with, key, query)
+    }
+
+    fn get_value_proof<'a, 'key>(&'a self, key: &'key [u8]) -> Option<Vec<Bytes>>
+    where
+        'a: 'key,
+    {
+        wrapper!(self, get_value_proof, key)
     }
 
     fn iter<'a>(&'a self) -> Result<Box<TrieIterator<Item = TrieItem> + 'a>> {

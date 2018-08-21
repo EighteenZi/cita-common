@@ -5,5 +5,4 @@ set -xe
 SCRIPT_PATH=`readlink -f $0`
 source "$(dirname "${SCRIPT_PATH}")/library"
 
-cargo_run_in_docker bench --all --no-run
-cargo_run_in_docker bench --all --jobs 1
+run_in_docker bash -c "cd cita-common-benches && cargo bench"

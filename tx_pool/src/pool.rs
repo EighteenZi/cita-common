@@ -19,7 +19,9 @@ use crypto::{pubkey_to_address, PubKey};
 use libproto::blockchain::{AccountGasLimit, SignedTransaction};
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use util::{Address, H256, BLOCKLIMIT};
+use types::traits::LowerHex;
+use types::{Address, H256};
+use util::BLOCKLIMIT;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Strategy {
@@ -126,7 +128,8 @@ impl Pool {
     }
 
     fn update_order_set(&mut self, hash_list: &HashSet<H256>) {
-        self.order_set = self.order_set
+        self.order_set = self
+            .order_set
             .iter()
             .cloned()
             .filter(|order| !hash_list.contains(&order.hash))
@@ -155,6 +158,7 @@ impl Pool {
         height: u64,
         block_gas_limit: u64,
         account_gas_limit: AccountGasLimit,
+        check_quota: bool,
     ) -> Vec<SignedTransaction> {
         let mut tx_list = Vec::new();
         let mut invalid_tx_list = Vec::new();
@@ -174,7 +178,8 @@ impl Pool {
                 let tx_is_valid = |signed_tx: &SignedTransaction, height: u64| {
                     let valid_until_block = signed_tx.get_transaction().get_valid_until_block();
                     (valid_until_block == 0)
-                        || (height < valid_until_block && valid_until_block <= (height + BLOCKLIMIT))
+                        || (height < valid_until_block
+                            && valid_until_block <= (height + BLOCKLIMIT))
                 };
                 if let Some(tx) = tx {
                     if tx_is_valid(tx, height) {
@@ -186,26 +191,29 @@ impl Pool {
                             }
                             break;
                         }
-                        if account_gas_used.contains_key(&signer) {
-                            let value = account_gas_used.get_mut(&signer).unwrap();
-                            if *value < quota {
-                                continue;
-                            }
-                            *value = *value - quota;
-                        } else {
-                            if let Some(value) = specific_gas_limit.get_mut(&signer.hex()) {
-                                gas_limit = *value;
-                            }
 
-                            let mut _remainder = 0;
-                            if quota < gas_limit {
-                                _remainder = gas_limit - quota;
+                        if check_quota {
+                            if account_gas_used.contains_key(&signer) {
+                                let value = account_gas_used.get_mut(&signer).unwrap();
+                                if *value < quota {
+                                    continue;
+                                }
+                                *value = *value - quota;
                             } else {
-                                _remainder = 0;
-                            }
-                            account_gas_used.insert(Address::from(signer), _remainder);
-                        }
+                                if let Some(value) = specific_gas_limit.get_mut(&signer.lower_hex())
+                                {
+                                    gas_limit = *value;
+                                }
 
+                                let mut _remainder = 0;
+                                if quota < gas_limit {
+                                    _remainder = gas_limit - quota;
+                                } else {
+                                    _remainder = 0;
+                                }
+                                account_gas_used.insert(Address::from(signer), _remainder);
+                            }
+                        }
                         n = n - quota;
                         tx_list.push(tx.clone());
                     } else {
@@ -216,7 +224,6 @@ impl Pool {
                 }
             }
         }
-
         self.update(&invalid_tx_list);
         tx_list
     }
@@ -235,10 +242,12 @@ impl Pool {
                 let hash = order.unwrap().hash;
                 let tx = self.txs.get(&hash);
                 if let Some(tx) = tx {
-                    if tx.get_transaction_with_sig()
+                    if tx
+                        .get_transaction_with_sig()
                         .get_transaction()
                         .valid_until_block >= height
-                        && tx.get_transaction_with_sig()
+                        && tx
+                            .get_transaction_with_sig()
                             .get_transaction()
                             .valid_until_block < (height + BLOCKLIMIT)
                     {
@@ -273,7 +282,11 @@ mod tests {
     use crypto::{CreateKey, KeyPair, PrivKey};
     use libproto::blockchain::{AccountGasLimit, SignedTransaction, Transaction};
 
-    pub fn generate_tx(data: Vec<u8>, valid_until_block: u64, privkey: &PrivKey) -> SignedTransaction {
+    pub fn generate_tx(
+        data: Vec<u8>,
+        valid_until_block: u64,
+        privkey: &PrivKey,
+    ) -> SignedTransaction {
         let mut tx = Transaction::new();
         tx.set_data(data);
         tx.set_to("1234567".to_string());
@@ -307,13 +320,13 @@ mod tests {
         p.update(&vec![tx1.clone()]);
         assert_eq!(p.len(), 2);
         assert_eq!(
-            p.package(5, 30, account_gas_limit.clone()),
+            p.package(5, 30, account_gas_limit.clone(), true),
             vec![tx3.clone()]
         );
         p.update(&vec![tx3.clone()]);
-        assert_eq!(p.package(4, 30, account_gas_limit.clone()), vec![tx4]);
+        assert_eq!(p.package(4, 30, account_gas_limit.clone(), true), vec![tx4]);
         assert_eq!(p.len(), 1);
-        assert_eq!(p.package(5, 30, account_gas_limit.clone()), vec![]);
+        assert_eq!(p.package(5, 30, account_gas_limit.clone(), true), vec![]);
         assert_eq!(p.len(), 0);
     }
 }

@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::Address;
 use std::marker;
+use types::Address;
 
 pub trait Sign
 where
@@ -29,8 +29,16 @@ where
 
     fn sign(privkey: &Self::PrivKey, message: &Self::Message) -> Result<Self, Self::Error>;
     fn recover(&self, message: &Self::Message) -> Result<Self::PubKey, Self::Error>;
-    fn verify_public(&self, pubkey: &Self::PubKey, message: &Self::Message) -> Result<bool, Self::Error>;
-    fn verify_address(&self, address: &Address, message: &Self::Message) -> Result<bool, Self::Error>;
+    fn verify_public(
+        &self,
+        pubkey: &Self::PubKey,
+        message: &Self::Message,
+    ) -> Result<bool, Self::Error>;
+    fn verify_address(
+        &self,
+        address: &Address,
+        message: &Self::Message,
+    ) -> Result<bool, Self::Error>;
 }
 
 pub trait CreateKey

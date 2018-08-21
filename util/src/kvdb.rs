@@ -1,12 +1,12 @@
 // Copyright 2015-2017 Parity Technologies (UK) Ltd.
 // This file is part of Parity.
 
-// Parity is free software: you can redistribute it and/or modify
+// This software is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Parity is distributed in the hope that it will be useful,
+// This software is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -348,8 +348,8 @@ impl CompactionProfile {
     /// Default profile suitable for SSD storage
     pub fn ssd() -> CompactionProfile {
         CompactionProfile {
-            initial_file_size: 32 * 1024 * 1024,
-            file_size_multiplier: 2,
+            initial_file_size: 64 * 1024 * 1024,
+            file_size_multiplier: 1,
             write_rate_limit: None,
         }
     }
@@ -764,9 +764,7 @@ impl Database {
     pub fn restore(&self, new_db: &str) -> Result<(), UtilError> {
         self.close();
 
-        let mut backup_db = PathBuf::from(&self.path);
-        backup_db.pop();
-        backup_db.push("backup_db");
+        let backup_db = PathBuf::from(self.path.clone() + "_backup_db");
 
         let existed = match fs::rename(&self.path, &backup_db) {
             Ok(_) => true,
@@ -889,7 +887,7 @@ impl Drop for Database {
 mod tests {
     extern crate mktemp;
     use super::*;
-    use hash::H256;
+    use types::H256;
     use std::str::FromStr;
 
     fn test_db(config: &DatabaseConfig) {

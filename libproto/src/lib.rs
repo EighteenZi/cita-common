@@ -18,9 +18,10 @@
 #![feature(try_from)]
 
 extern crate cita_crypto as crypto;
+extern crate cita_types as types;
 extern crate grpc;
 #[macro_use]
-extern crate log as rlog;
+extern crate logger;
 extern crate protobuf;
 extern crate rlp;
 extern crate rustc_serialize;
@@ -34,17 +35,23 @@ pub use protos::*;
 mod autoimpl;
 pub mod router;
 
-use crypto::{CreateKey, KeyPair, Message as SignMessage, PrivKey, PubKey, Sign, Signature, SIGNATURE_BYTES_LEN};
+use crypto::{
+    CreateKey, KeyPair, Message as SignMessage, PrivKey, PubKey, Sign, Signature,
+    SIGNATURE_BYTES_LEN,
+};
 use protobuf::RepeatedField;
 use rlp::{Decodable, DecoderError, Encodable, RlpStream, UntrustedRlp};
 use rustc_serialize::hex::ToHex;
 use std::convert::{From, TryFrom, TryInto};
 use std::ops::Deref;
 use std::result::Result::Err;
-use util::{merklehash, H256, Hashable};
+use types::H256;
+use util::{merklehash, Hashable};
 
-pub use autoimpl::{Message, MsgClass, OperateType, Origin, RawBytes, TryFromConvertError, TryIntoConvertError,
-                   ZERO_ORIGIN};
+pub use autoimpl::{
+    Message, MsgClass, OperateType, Origin, RawBytes, TryFromConvertError, TryIntoConvertError,
+    ZERO_ORIGIN,
+};
 
 //TODO respone contain error
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -147,6 +154,10 @@ impl UnverifiedTransaction {
         verify_tx_req.set_crypto(self.get_crypto());
         verify_tx_req.set_signature(self.get_signature().to_vec());
         verify_tx_req.set_nonce(self.get_transaction().get_nonce().to_string());
+        verify_tx_req.set_value(self.get_transaction().get_value().to_vec());
+        verify_tx_req.set_chain_id(self.get_transaction().get_chain_id());
+        verify_tx_req.set_quota(self.get_transaction().get_quota());
+
         // unverified tx hash
         let tx_hash = self.crypt_hash();
         verify_tx_req.set_tx_hash(tx_hash.to_vec());

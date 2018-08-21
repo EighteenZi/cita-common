@@ -1,12 +1,12 @@
 // Copyright 2015-2017 Parity Technologies (UK) Ltd.
 // This file is part of Parity.
 
-// Parity is free software: you can redistribute it and/or modify
+// This software is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Parity is distributed in the hope that it will be useful,
+// This software is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -15,7 +15,6 @@
 // along with Parity.  If not, see <http://www.gnu.org/licenses/>.
 #![feature(custom_attribute)]
 #![allow(unused_attributes)]
-#![rustfmt_skip]
 extern crate siphasher;
 
 use siphasher::sip::SipHasher;
@@ -68,14 +67,16 @@ impl BitVecJournal {
 
     pub fn drain(&mut self) -> Vec<(usize, u64)> {
         let journal = mem::replace(&mut self.journal, HashSet::new()).into_iter();
-        journal.map(|idx| (idx, self.elems[idx])).collect::<Vec<(usize, u64)>>()
+        journal
+            .map(|idx| (idx, self.elems[idx]))
+            .collect::<Vec<(usize, u64)>>()
     }
 
     pub fn saturation(&self) -> f64 {
-        self.elems.iter().fold(
-            0u64,
-            |acc, e| acc + e.count_ones() as u64
-        ) as f64 / (self.elems.len() * 64) as f64
+        self.elems
+            .iter()
+            .fold(0u64, |acc, e| acc + e.count_ones() as u64) as f64
+            / (self.elems.len() * 64) as f64
     }
 }
 
@@ -220,7 +221,6 @@ pub struct BloomJournal {
     pub hash_functions: u32,
     pub entries: Vec<(usize, u64)>,
 }
-
 
 #[cfg(test)]
 mod tests {

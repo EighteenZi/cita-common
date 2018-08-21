@@ -1,12 +1,12 @@
 // Copyright 2015-2017 Parity Technologies (UK) Ltd.
 // This file is part of Parity.
 
-// Parity is free software: you can redistribute it and/or modify
+// This software is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Parity is distributed in the hope that it will be useful,
+// This software is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -19,7 +19,8 @@
 
 use super::{DB_PREFIX_LEN, LATEST_ERA_KEY};
 use super::traits::JournalDB;
-use {Bytes, H256, BaseDataError, UtilError};
+use {Bytes, BaseDataError, UtilError};
+use types::H256;
 use hashdb::*;
 use kvdb::{KeyValueDB, DBTransaction};
 use memorydb::*;
@@ -209,11 +210,13 @@ mod tests {
     extern crate mktemp;
 
     use super::*;
-    use {Hashable, H32};
+    use Hashable;
+    use types::H32;
     use hashdb::{HashDB, DBValue};
     use journaldb::traits::JournalDB;
     use kvdb::Database;
     use std::path::Path;
+    use types::traits::LowerHex;
 
     #[test]
     fn insert_same_in_fork() {
@@ -371,7 +374,7 @@ mod tests {
     #[test]
     fn reopen() {
         let mut dir = ::std::env::temp_dir();
-        dir.push(H32::random().hex());
+        dir.push(H32::random().lower_hex());
         let bar = H256::random();
 
         let foo = {
@@ -400,7 +403,7 @@ mod tests {
     #[test]
     fn reopen_remove() {
         let mut dir = ::std::env::temp_dir();
-        dir.push(H32::random().hex());
+        dir.push(H32::random().lower_hex());
 
         let foo = {
             let mut jdb = new_db(&dir);
@@ -430,7 +433,7 @@ mod tests {
     #[test]
     fn reopen_fork() {
         let mut dir = ::std::env::temp_dir();
-        dir.push(H32::random().hex());
+        dir.push(H32::random().lower_hex());
         let (foo, _, _) = {
             let mut jdb = new_db(&dir);
             // history is 1

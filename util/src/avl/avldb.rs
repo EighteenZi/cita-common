@@ -1,12 +1,15 @@
 // Copyright 2015-2017 Parity Technologies (UK) Ltd.
 // This file is part of Parity.
 
-// Parity is free software: you can redistribute it and/or modify
+// Copyright 2016-2017 Cryptape Technologies LLC.
+// Replace trie tree with avl tree
+
+// This software is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Parity is distributed in the hope that it will be useful,
+// This software is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -14,17 +17,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity.  If not, see <http://www.gnu.org/licenses/>.
 
-// CITA, Copyright 2016-2017 Cryptape Technologies LLC.
-// Replace trie tree with avl tree
-
-use super::{AVLError, AVLItem, AVLIterator, Query, AVL};
 use super::lookup::Lookup;
 use super::node::{Node, NodeKey, OwnedNode};
-use H256;
+use super::{AVLError, AVLItem, AVLIterator, Query, AVL};
 use bytes::*;
 use hashdb::*;
 use rlp::*;
 use std::fmt;
+use types::H256;
 
 /// A `AVL` implementation using a generic `HashDB` backing database.
 ///
@@ -151,7 +151,11 @@ impl<'db> AVL for AVLDB<'db> {
         self.root
     }
 
-    fn get_with<'a, 'key, Q: Query>(&'a self, key: &'key [u8], query: Q) -> super::Result<Option<Q::Item>>
+    fn get_with<'a, 'key, Q: Query>(
+        &'a self,
+        key: &'key [u8],
+        query: Q,
+    ) -> super::Result<Option<Q::Item>>
     where
         'a: 'key,
     {
@@ -290,7 +294,9 @@ impl<'a> Iterator for AVLDBIterator<'a> {
                     return Some(Ok((k, v)));
                 }
                 (Status::At, OwnedNode::Branch(_, _, _)) => {}
-                (Status::AtChild(i), OwnedNode::Branch(_, _, ref children)) if children[i].len() > 0 => {
+                (Status::AtChild(i), OwnedNode::Branch(_, _, ref children))
+                    if children[i].len() > 0 =>
+                {
                     if let Err(e) = self.descend(&*children[i]) {
                         return Some(Err(e));
                     }
@@ -307,8 +313,8 @@ impl<'a> Iterator for AVLDBIterator<'a> {
 
 #[test]
 fn iterator() {
-    use super::AVLMut;
     use super::avldbmut::*;
+    use super::AVLMut;
     use memorydb::*;
 
     let d = vec![
@@ -340,8 +346,8 @@ fn iterator() {
 
 #[test]
 fn iterator_seek() {
-    use super::AVLMut;
     use super::avldbmut::*;
+    use super::AVLMut;
     use memorydb::*;
 
     let d = vec![
@@ -393,8 +399,8 @@ fn iterator_seek() {
 
 #[test]
 fn get_len() {
-    use super::AVLMut;
     use super::avldbmut::*;
+    use super::AVLMut;
     use memorydb::*;
 
     let mut memdb = MemoryDB::new();

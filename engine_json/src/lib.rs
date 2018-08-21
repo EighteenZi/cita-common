@@ -17,21 +17,21 @@
 
 #![allow(unused_extern_crates)]
 extern crate cita_crypto as crypto;
+extern crate cita_types as types;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
-extern crate util;
 
-mod engine;
 mod authority_round;
-mod tendermint;
+mod bft;
+mod engine;
 mod spec;
 
 pub use self::authority_round::*;
+pub use self::bft::*;
 pub use self::engine::*;
 pub use self::spec::*;
-pub use self::tendermint::*;
 
 #[test]
 fn it_works() {}

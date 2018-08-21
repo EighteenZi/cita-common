@@ -1,12 +1,15 @@
 // Copyright 2015-2017 Parity Technologies (UK) Ltd.
 // This file is part of Parity.
 
-// Parity is free software: you can redistribute it and/or modify
+// Copyright 2016-2017 Cryptape Technologies LLC.
+// Replace trie tree with avl tree
+
+// This software is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Parity is distributed in the hope that it will be useful,
+// This software is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -14,30 +17,27 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity.  If not, see <http://www.gnu.org/licenses/>.
 
-// CITA, Copyright 2016-2017 Cryptape Technologies LLC.
-// Replace trie tree with avl tree
-
 //! AVL interface and implementation.
 
-use H256;
 use hashable::HASH_NULL_RLP;
 use hashdb::{DBValue, HashDB};
 use std::fmt;
+use types::H256;
 
-/// Export the standardmap module.
-pub mod standardmap;
-/// Export the node module.
-pub mod node;
 /// Export the avldb module.
 pub mod avldb;
 /// Export the avldbmut module.
 pub mod avldbmut;
+/// Export the node module.
+pub mod node;
+/// AVL query recording.
+pub mod recorder;
 /// Export the secavldb module.
 pub mod secavldb;
 /// Export the secavldbmut module.
 pub mod secavldbmut;
-/// AVL query recording.
-pub mod recorder;
+/// Export the standardmap module.
+pub mod standardmap;
 
 mod fatdb;
 mod fatdbmut;
@@ -69,7 +69,9 @@ impl fmt::Display for AVLError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             AVLError::InvalidStateRoot(ref root) => write!(f, "Invalid state root: {}", root),
-            AVLError::IncompleteDatabase(ref missing) => write!(f, "Database missing expected key: {}", missing),
+            AVLError::IncompleteDatabase(ref missing) => {
+                write!(f, "Database missing expected key: {}", missing)
+            }
         }
     }
 }
@@ -294,7 +296,11 @@ impl AVLFactory {
     }
 
     /// Create new mutable instance of AVL and check for errors.
-    pub fn from_existing<'db>(&self, db: &'db mut HashDB, root: &'db mut H256) -> Result<Box<AVLMut + 'db>> {
+    pub fn from_existing<'db>(
+        &self,
+        db: &'db mut HashDB,
+        root: &'db mut H256,
+    ) -> Result<Box<AVLMut + 'db>> {
         match self.spec {
             AVLSpec::Generic => Ok(Box::new(AVLDBMut::from_existing(db, root)?)),
             AVLSpec::Secure => Ok(Box::new(SecAVLDBMut::from_existing(db, root)?)),

@@ -1,12 +1,12 @@
 // Copyright 2015-2017 Parity Technologies (UK) Ltd.
 // This file is part of Parity.
 
-// Parity is free software: you can redistribute it and/or modify
+// This software is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Parity is distributed in the hope that it will be useful,
+// This software is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -17,9 +17,10 @@
 
 use super::{Trie, TrieItem, TrieIterator, Query};
 use super::triedb::TrieDB;
-use hash::H256;
+use types::H256;
 use hashable::Hashable;
 use hashdb::HashDB;
+use Bytes;
 
 /// A `Trie` implementation which hashes keys and uses a generic `HashDB` backing database.
 ///
@@ -68,6 +69,10 @@ impl<'db> Trie for SecTrieDB<'db> {
     {
         self.raw.get_with(&key.crypt_hash(), query)
     }
+
+    fn get_value_proof<'a, 'key>(&'a self, _key: &'key [u8]) -> Option<Vec<Bytes>>
+        where
+            'a: 'key, { None }
 }
 
 #[test]

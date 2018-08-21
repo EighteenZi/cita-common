@@ -1,12 +1,15 @@
 // Copyright 2015-2017 Parity Technologies (UK) Ltd.
 // This file is part of Parity.
 
-// Parity is free software: you can redistribute it and/or modify
+// Copyright 2016-2018 Cryptape Technologies LLC.
+// Add get_value_proof and verify_value_proof for TrieDB
+
+// This software is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Parity is distributed in the hope that it will be useful,
+// This software is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -18,11 +21,13 @@
 use super::{Trie, TrieItem, TrieError, TrieIterator, Query};
 use super::lookup::Lookup;
 use super::node::{Node, OwnedNode};
-use {ToPretty, Bytes, H256};
+use {ToPretty, Bytes};
+use types::H256;
 use hashdb::*;
 use nibbleslice::*;
 use rlp::*;
 use std::fmt;
+use Hashable;
 
 /// A `Trie` implementation using a generic `HashDB` backing database.
 ///
@@ -143,6 +148,54 @@ impl<'db> TrieDB<'db> {
     }
 }
 
+pub fn verify_value_proof<Q: Query>(key: &[u8], root_hash: H256, proof: &[Bytes], query: Q) -> Option<Q::Item>
+{
+    if proof.len() == 0 { return None; }
+
+    let mut key = NibbleSlice::new(key);
+    let mut next_node_data: &[u8];
+    let mut next_node_hash = root_hash;
+
+    for node in proof {
+        let node_hash = node.crypt_hash();
+        if node_hash != next_node_hash { return None; }
+
+        match Node::decoded(node) {
+            Node::Leaf(slice, value) => {
+                return match slice == key {
+                    true => Some(query.decode(value)),
+                    false => None,
+                };
+            }
+            Node::Extension(slice, item) => {
+                if key.starts_with(&slice) {
+                    next_node_data = item;
+                    key = key.mid(slice.len());
+                } else {
+                    return None;
+                }
+            }
+            Node::Branch(children, value) => match key.is_empty() {
+                true => return value.map(move |val| query.decode(val)),
+                false => {
+                    next_node_data = children[key.at(0) as usize];
+                    key = key.mid(1);
+                }
+            },
+            _ => return None,
+        }
+
+        // check if node data is inline or hash.
+        let r = Rlp::new(next_node_data);
+        if r.is_data() && r.size() == 32 {
+            next_node_hash = r.as_val();
+        } else {
+            next_node_hash = next_node_data.crypt_hash();
+        }
+    }
+    None
+}
+
 impl<'db> Trie for TrieDB<'db> {
     fn iter<'a>(&'a self) -> super::Result<Box<TrieIterator<Item = TrieItem> + 'a>> {
         TrieDBIterator::new(self).map(|iter| Box::new(iter) as Box<_>)
@@ -162,6 +215,58 @@ impl<'db> Trie for TrieDB<'db> {
             hash: self.root.clone(),
         }
         .look_up(NibbleSlice::new(key))
+    }
+
+    fn get_value_proof<'a, 'key>(&'a self, key: &'key [u8]) -> Option<Vec<Bytes>>
+        where
+            'a: 'key,
+    {
+        let mut path = Vec::new();
+        let mut key = NibbleSlice::new(key);
+        let mut hash = self.root.clone();
+
+        // this loop iterates through non-inline nodes.
+        loop {
+            let node_data = match self.db.get(&hash) {
+                Some(value) => value,
+                None => return None,
+            };
+
+            // this loop iterates through all inline children (usually max 1)
+            // without incrementing the depth.
+            let mut node_data = &node_data[..];
+            loop {
+                path.push(node_data.into());
+                match Node::decoded(node_data) {
+                    Node::Leaf(_slice, _value) => {
+                        return Some(path);
+                    }
+                    Node::Extension(slice, item) => {
+                        if key.starts_with(&slice) {
+                            node_data = item;
+                            key = key.mid(slice.len());
+                        } else {
+                            return None;
+                        }
+                    }
+                    Node::Branch(children, _value) => match key.is_empty() {
+                        true => return Some(path),
+                        false => {
+                            node_data = children[key.at(0) as usize];
+                            key = key.mid(1);
+                        }
+                    },
+                    _ => return None,
+                }
+
+                // check if new node data is inline or hash.
+                let r = Rlp::new(node_data);
+                if r.is_data() && r.size() == 32 {
+                    hash = r.as_val();
+                    break;
+                }
+            }
+        }
     }
 }
 
@@ -495,4 +600,66 @@ fn get_len() {
     assert_eq!(t.get_with(b"A", |x: &[u8]| x.len()), Ok(Some(3)));
     assert_eq!(t.get_with(b"B", |x: &[u8]| x.len()), Ok(Some(5)));
     assert_eq!(t.get_with(b"C", |x: &[u8]| x.len()), Ok(None));
+}
+
+#[test]
+fn value_proof() {
+    use memorydb::MemoryDB;
+    use trie::{TrieDB, TrieDBMut, TrieMut};
+    use trie::triedb::verify_value_proof;
+    use hashdb::DBValue;
+
+    let mut memdb = MemoryDB::new();
+    let mut root = H256::new();
+    {
+        let mut t = TrieDBMut::new(&mut memdb, &mut root);
+        // <64 6f> : 'verb'
+        // <64 6f 67> : 'puppy'
+        // <64 6f 67 65> : 'coin'
+        // <68 6f 72 73 65> : 'stallion'
+        t.insert(&[0x64u8, 0x6f], b"verb").unwrap();
+        t.insert(&[0x64u8, 0x6f, 0x67], b"puppy").unwrap();
+        t.insert(&[0x64u8, 0x6f, 0x67, 0x65], b"coin").unwrap();
+        t.insert(&[0x68u8, 0x6f, 0x72, 0x73, 0x65], b"stallion").unwrap();
+    }
+
+    let trie = TrieDB::new(&memdb, &root).unwrap();
+
+    /*
+    println!("trie {:?}", trie);
+    trie c=0 [
+    '6
+      '4 '6'f
+        =: 76·65·72·62
+        '6 '7
+          =: 70·75·70·70·79
+          '6 '5: 63·6f·69·6e.
+      '8 '6'f'7'2'7'3'6'5: 73·74·61·6c·6c·69·6f·6e.
+    ]
+
+    {
+        let mut recorder = Recorder::new();
+
+        let ret = trie.get_with(&[0x64u8, 0x6f, 0x67, 0x65], &mut recorder).unwrap().unwrap();
+        println!("{:x?}", ret);
+        let nodes: Vec<_> = recorder.drain().into_iter().map(|r| (r.hash, r.data, r.depth)).collect();
+        for node in nodes.clone() {
+            println!("node {:x?}, {:x?}, {:x?}", node, node.1.crypt_hash(), Node::decoded(&node.1));
+        }
+        let last_node = Node::decoded(&nodes[nodes.len() - 1].1);
+        let ret1 = match last_node {
+            Node::Branch(children, value) => value.map(move |val| DBValue::from_slice(val)),
+            _ => None,
+        };
+        println!("{:x?}", ret1);
+    }
+    */
+
+    // get valuse proof
+    let proof = trie.get_value_proof(&[0x64u8, 0x6f, 0x67, 0x65]).unwrap();
+
+    // verify proof and extract value
+    let val = verify_value_proof(&[0x64u8, 0x6f, 0x67, 0x65], root, &proof, DBValue::from_slice).unwrap();
+
+    assert_eq!(val, DBValue::from_slice(b"coin"));
 }

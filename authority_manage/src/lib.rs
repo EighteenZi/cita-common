@@ -16,12 +16,12 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 extern crate bincode;
-extern crate util;
+extern crate cita_types as types;
 
 mod wal;
 
 use bincode::{deserialize, serialize, Infinite};
-use util::Address;
+use types::Address;
 use wal::Wal;
 
 const DATA_PATH: &'static str = "DATA_PATH";
@@ -39,7 +39,9 @@ pub struct AuthorityManage {
 
 impl AuthorityManage {
     pub fn new() -> Self {
-        let logpath = ::std::env::var(DATA_PATH).expect(format!("{} must be set", DATA_PATH).as_str()) + "/authorities";
+        let logpath = ::std::env::var(DATA_PATH)
+            .expect(format!("{} must be set", DATA_PATH).as_str())
+            + "/authorities";
 
         let mut authority_manage = AuthorityManage {
             authorities: Vec::new(),
@@ -85,7 +87,7 @@ impl AuthorityManage {
             let bmsg = serialize(
                 &(
                     height,
-                    self.authority_n_old.clone(),
+                    self.authorities_old.clone(),
                     self.authorities.clone(),
                 ),
                 Infinite,

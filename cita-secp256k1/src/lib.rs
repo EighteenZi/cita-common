@@ -19,6 +19,7 @@
 
 #[cfg(test)]
 extern crate bincode;
+extern crate cita_types as types;
 #[macro_use]
 extern crate lazy_static;
 extern crate rand;
@@ -32,7 +33,6 @@ extern crate util;
 pub type PrivKey = H256;
 pub type PubKey = H512;
 pub type Message = H256;
-pub type Public = H512;
 
 pub const ADDR_BYTES_LEN: usize = 20;
 pub const PUBKEY_BYTES_LEN: usize = 64;
@@ -49,11 +49,8 @@ pub use self::error::*;
 pub use self::keypair::*;
 pub use self::signature::*;
 pub use self::signer::Signer;
-use util::{Address, H256, H512};
+use types::{Address, H256, H512};
 
 lazy_static! {
     pub static ref SECP256K1: secp256k1::Secp256k1 = secp256k1::Secp256k1::new();
 }
-
-#[test]
-fn it_works() {}

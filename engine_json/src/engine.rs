@@ -18,13 +18,13 @@
 //! Engine deserialization.
 
 use super::AuthorityRound;
-use super::Tendermint;
+use super::Bft;
 
 /// Engine deserialization.
 #[derive(Debug, PartialEq, Deserialize)]
 pub enum Engine {
     AuthorityRound(AuthorityRound),
-    Tendermint(Tendermint),
+    Bft(Bft),
 }
 
 #[cfg(test)]
@@ -37,14 +37,18 @@ mod tests {
 
     fn generate_signer() -> String {
         if SIGNATURE_NAME == "ed25519" {
-            "a100df7a048e50ed308ea696dc60021\
-             5098141cb391e9527329df289f9383f6\
-             5a100df7a048e50ed308ea696dc60021\
-             5098141cb391e9527329df289f9383f65"
+            "a100df7a048e50ed308ea696dc600215\
+             098141cb391e9527329df289f9383f65\
+             a100df7a048e50ed308ea696dc600215\
+             098141cb391e9527329df289f9383f65"
                 .to_string()
         } else if SIGNATURE_NAME == "secp256k1" {
-            "a100df7a048e50ed308ea696dc60021\
-             5098141cb391e9527329df289f9383f65"
+            "a100df7a048e50ed308ea696dc600215\
+             098141cb391e9527329df289f9383f65"
+                .to_string()
+        } else if SIGNATURE_NAME == "sm2" {
+            "a100df7a048e50ed308ea696dc600215\
+             098141cb391e9527329df289f9383f65"
                 .to_string()
         } else {
             "".to_string()
@@ -60,7 +64,7 @@ mod tests {
                     "params": {{
                         "authorities" : ["0x5b073e9233944b5e729e46d618f0d8edf3d9c34a"],
                         "duration": 3,
-                        "signer": "{}",
+                        "signer": "0x{}",
                         "is_test": true
                     }}
                 }}
@@ -72,14 +76,14 @@ mod tests {
     }
 
     #[test]
-    fn tendermint_engine_deserialization() {
+    fn bft_engine_deserialization() {
         let signer = generate_signer();
         let s = format!(
             r#"{{
-            "Tendermint": {{
+            "Bft": {{
                 "params": {{
                     "duration": 3,
-                    "signer": "{}",
+                    "signer": "0x{}",
                     "is_test": true
                 }}
             }}

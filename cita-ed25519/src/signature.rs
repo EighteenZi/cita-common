@@ -15,17 +15,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{pubkey_to_address, Address, Error, KeyPair, Message, PrivKey, PubKey, SIGNATURE_BYTES_LEN};
+use super::{
+    pubkey_to_address, Address, Error, KeyPair, Message, PrivKey, PubKey, SIGNATURE_BYTES_LEN,
+};
 use rlp::*;
 use rustc_serialize::hex::ToHex;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{Error as SerdeError, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
-use sodiumoxide::crypto::sign::{sign_detached, verify_detached, PublicKey as EdPublicKey, SecretKey,
-                                Signature as EdSignature};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sodiumoxide::crypto::sign::{
+    sign_detached, verify_detached, PublicKey as EdPublicKey, SecretKey, Signature as EdSignature,
+};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
-use util::H768;
 use util::crypto::{CreateKey, Sign};
 
 pub struct Signature(pub [u8; 96]);
@@ -167,21 +169,18 @@ impl<'a> Into<&'a [u8]> for &'a Signature {
     }
 }
 
-impl From<Signature> for H768 {
-    fn from(s: Signature) -> Self {
-        s.0.into()
-    }
-}
-
-impl From<H768> for Signature {
-    fn from(h: H768) -> Self {
-        Signature(h.into())
+impl fmt::LowerHex for Signature {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for i in &self.0[..] {
+            write!(f, "{:02x}", i)?;
+        }
+        Ok(())
     }
 }
 
 impl From<Signature> for String {
     fn from(s: Signature) -> Self {
-        H768::from(s).hex()
+        format!("{:x}", s)
     }
 }
 
@@ -213,7 +212,7 @@ impl Sign for Signature {
         let sig = sign_detached(message.as_ref(), &secret_key);
 
         ret[0..64].copy_from_slice(&sig.0[..]);
-        ret[64..96].copy_from_slice(&pubkey.as_ref()[..]);
+        ret[64..96].copy_from_slice(pubkey.as_ref() as &[u8]);
         Ok(Signature(ret))
     }
 
@@ -233,10 +232,14 @@ impl Sign for Signature {
         }
     }
 
-    fn verify_public(&self, pubkey: &Self::PubKey, message: &Self::Message) -> Result<bool, Self::Error> {
+    fn verify_public(
+        &self,
+        pubkey: &Self::PubKey,
+        message: &Self::Message,
+    ) -> Result<bool, Self::Error> {
         let sig = self.sig();
         let pk = self.pk();
-        if pk != pubkey.as_ref() {
+        if pk != pubkey.as_ref() as &[u8] {
             return Err(Error::InvalidPubKey);
         }
 
@@ -266,8 +269,9 @@ mod tests {
     use util::crypto::CreateKey;
 
     const MESSAGE: [u8; 32] = [
-        0x01, 0x02, 0x03, 0x04, 0x19, 0xab, 0xfe, 0x39, 0x6f, 0x28, 0x79, 0x00, 0x08, 0xdf, 0x9a, 0xef, 0xfb, 0x77,
-        0x42, 0xae, 0xad, 0xfc, 0xcf, 0x12, 0x24, 0x45, 0x29, 0x89, 0x29, 0x45, 0x3f, 0xf8,
+        0x01, 0x02, 0x03, 0x04, 0x19, 0xab, 0xfe, 0x39, 0x6f, 0x28, 0x79, 0x00, 0x08, 0xdf, 0x9a,
+        0xef, 0xfb, 0x77, 0x42, 0xae, 0xad, 0xfc, 0xcf, 0x12, 0x24, 0x45, 0x29, 0x89, 0x29, 0x45,
+        0x3f, 0xf8,
     ];
 
     #[test]

@@ -7,19 +7,13 @@ This repository is a collection of crates used by microservices in [CITA](https:
 
 Crates below are extracted from [Parity](https://github.com/paritytech/parity):
 
-- bigint
-- bloomable
 - ethcore-bloom-journal
-- ethcore-io
-- ethkey
 - rlp
 - rlp_derive
-- sha3
 - util
 
 with following modifications:
 
-- impl serde for bigint
 - add UtilError::Snappy in util::error
 - add some modules in util:
     - build_info.rs
@@ -30,3 +24,4 @@ with following modifications:
     - merklehash.rs
     - snappy.rs
 - add util::avl.
+- add get_value_proof and verify_value_proof in util::trie::triedb

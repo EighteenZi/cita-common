@@ -74,16 +74,20 @@ pub enum MsgType {
     ExecutedResult,
     SnapshotReq,
     SnapshotResp,
+    Miscellaneous,
+    MiscellaneousReq,
+    BlackList,
+    StateSignal,
     // Generate MSG-PROTOS struct automatically end.
     All,
     Unknown,
     // TODO This is a issue left over by history.
     //      The Request is too big (send from Jsonrpc).
     //      To remove follow items should be better.
-    LocalSync,
     RequestNewTx,
     RequestNewTxBatch,
     RequestNet,
+    LocalSync,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -164,13 +168,17 @@ impl fmt::Display for MsgType {
                 &MsgType::ExecutedResult => "executed_result",
                 &MsgType::SnapshotReq => "snapshot_req",
                 &MsgType::SnapshotResp => "snapshot_resp",
+                &MsgType::Miscellaneous => "miscellaneous",
+                &MsgType::MiscellaneousReq => "miscellaneous_req",
+                &MsgType::BlackList => "black_list",
+                &MsgType::StateSignal => "state_signal",
                 // Generate MSG-PROTOS display automatically end.
-                &MsgType::LocalSync => "sync",
                 &MsgType::All => "*",
                 &MsgType::Unknown => UNKNOWN,
                 &MsgType::RequestNewTx => "request_new_tx",
                 &MsgType::RequestNewTxBatch => "request_new_tx_batch",
                 &MsgType::RequestNet => "request_net",
+                &MsgType::LocalSync => "local_sync",
             }
         )
     }
@@ -224,12 +232,16 @@ impl<'a> From<&'a str> for MsgType {
             "executed_result" => MsgType::ExecutedResult,
             "snapshot_req" => MsgType::SnapshotReq,
             "snapshot_resp" => MsgType::SnapshotResp,
+            "miscellaneous" => MsgType::Miscellaneous,
+            "miscellaneous_req" => MsgType::MiscellaneousReq,
+            "black_list" => MsgType::BlackList,
+            "state_signal" => MsgType::StateSignal,
             // Generate MSG-PROTOS from_str automatically end.
-            "sync" => MsgType::LocalSync,
             "*" => MsgType::All,
             "request_new_tx" => MsgType::RequestNewTx,
             "request_new_tx_batch" => MsgType::RequestNewTxBatch,
             "request_net" => MsgType::RequestNet,
+            "local_sync" => MsgType::LocalSync,
             _ => MsgType::Unknown,
         }
     }
@@ -246,7 +258,7 @@ impl<'a> From<&'a str> for RoutingKey {
 }
 
 macro_rules! impl_some_traits {
-    ($struct:ident) => (
+    ($struct:ident) => {
         impl From<String> for $struct {
             fn from(s: String) -> $struct {
                 $struct::from(s.as_str())
@@ -264,7 +276,7 @@ macro_rules! impl_some_traits {
                 self.to_string()
             }
         }
-    );
+    };
 }
 
 impl_some_traits!(SubModules);

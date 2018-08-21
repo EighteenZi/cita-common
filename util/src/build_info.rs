@@ -55,7 +55,9 @@ fn get_commit_id(repo: &Repository) -> Option<String> {
 fn get_branch(repo: &Repository) -> Option<String> {
     let head = match repo.head() {
         Ok(head) => Some(head),
-        Err(ref e) if e.code() == ErrorCode::UnbornBranch || e.code() == ErrorCode::NotFound => None,
+        Err(ref e) if e.code() == ErrorCode::UnbornBranch || e.code() == ErrorCode::NotFound => {
+            None
+        }
         Err(_) => return None,
     };
     head.as_ref()
@@ -134,10 +136,14 @@ pub fn gen_build_info(out_dir: &str, dest_name: &str) {
         .replace("\n", "\\n");
     let code = format!(
         "
+        #[allow(unknown_lints)]
+        #[allow(clippy)]
         pub fn get_build_info_str(short: bool) -> &'static str {{
            if short {{ \"{}\" }} else {{ \"{}\" }}
         }}
 
+        #[allow(unknown_lints)]
+        #[allow(clippy)]
         pub fn get_build_info() -> (
            &'static str,          // ASCII Logo
            Option<&'static str>,  // git: describe --dirty=-dev
@@ -151,7 +157,16 @@ pub fn gen_build_info(out_dir: &str, dest_name: &str) {
            ({:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?})
         }}
     ",
-        version_string, info_str, ASCII_LOGO, descr_dirty, tag, branch, commit_id, version, pre, commit_date
+        version_string,
+        info_str,
+        ASCII_LOGO,
+        descr_dirty,
+        tag,
+        branch,
+        commit_id,
+        version,
+        pre,
+        commit_date
     );
     f.write_all(code.as_bytes()).unwrap();
 }

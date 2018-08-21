@@ -19,9 +19,9 @@
 #![feature(custom_attribute)]
 #![allow(unused_attributes)]
 extern crate ansi_term;
-extern crate bigint;
 #[cfg(feature = "blake2bhash")]
 extern crate blake2b;
+extern crate cita_types as types;
 extern crate elastic_array;
 extern crate git2;
 extern crate heapsize;
@@ -33,16 +33,16 @@ extern crate regex;
 extern crate rlp;
 #[macro_use]
 extern crate rlp_derive;
+#[cfg(feature = "sm3hash")]
+extern crate libsm;
 extern crate rocksdb;
 extern crate rustc_hex;
 extern crate rustc_version;
-extern crate sha3;
-#[cfg(feature = "sm3hash")]
-extern crate sm3;
 extern crate target_info;
+pub extern crate tiny_keccak as sha3;
 
 #[macro_use]
-extern crate log as rlog;
+extern crate logger;
 extern crate panic_hook;
 extern crate serde;
 extern crate toml;
@@ -50,33 +50,31 @@ extern crate uuid;
 
 pub mod avl;
 pub mod build_info;
-pub mod merklehash;
-pub mod hashable;
-pub mod common;
-pub mod error;
 pub mod bytes;
-pub mod misc;
-pub mod vector;
-pub mod hashdb;
-pub mod memorydb;
-pub mod overlaydb;
-pub mod journaldb;
-pub mod kvdb;
-pub mod triehash;
-pub mod trie;
-pub mod nibbleslice;
-pub mod nibblevec;
-pub mod semantic_version;
-pub mod snappy;
 pub mod cache;
+pub mod common;
 pub mod crypto;
 pub mod datapath;
+pub mod error;
+pub mod hashable;
+pub mod hashdb;
 pub mod instrument;
+pub mod journaldb;
+pub mod kvdb;
+pub mod memorydb;
+pub mod merklehash;
+pub mod nibbleslice;
+pub mod nibblevec;
+pub mod overlaydb;
+pub mod semantic_version;
+pub mod snappy;
+pub mod trie;
+pub mod triehash;
+pub mod vector;
 #[macro_use]
 pub mod init;
 
 pub use ansi_term::{Colour, Style};
-pub use bigint::*;
 pub use bytes::*;
 pub use datapath::*;
 // pub use timer::*;
@@ -90,7 +88,6 @@ pub use itertools::Itertools;
 pub use journaldb::JournalDB;
 pub use kvdb::*;
 pub use memorydb::MemoryDB;
-pub use misc::*;
 pub use overlaydb::*;
 pub use panic_hook::set_panic_handler;
 pub use parking_lot::{Condvar, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -99,8 +96,13 @@ pub use trie::{SecTrieDB, SecTrieDBMut, Trie, TrieDB, TrieDBMut, TrieError, Trie
 pub use triehash::*;
 pub use vector::*;
 
-/// 160-bit integer representing account address
-pub type Address = H160;
-pub type Bloom = H2048;
-
 pub const BLOCKLIMIT: u64 = 100;
+
+/// Boolean type for clean/dirty status.
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub enum Filth {
+    /// Data has not been changed.
+    Clean,
+    /// Data has been changed.
+    Dirty,
+}

@@ -1,12 +1,13 @@
 [workspace]
 
 members = [
+    "cita-common-benches",
+
     "logger",
-    "ethcore-io",
     "error",
     "panic_hook",
     "worker",
-    "bigint",
+    "cita-types",
     "util",
 
     "pubsub_zeromq",
@@ -15,15 +16,11 @@ members = [
     "pubsub",
 
     "ethcore-bloom-journal",
-    "bloomable",
-    "sha3",
     "blake2b",
     "cita-sm2",
-    "sm3",
     "cita-secp256k1",
     "cita-ed25519",
     "cita-crypto",
-    "ethkey",
 
     "rlp",
     "rlp_derive",
@@ -34,6 +31,9 @@ members = [
     "proof",
     "engine_json",
     "authority_manage",
+
+    "jsonrpc-types",
+    "cita-web3",
 
     "engine",
 ]
